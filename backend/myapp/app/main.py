@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from datetime import datetime
 from typing import Dict, Any
 import os
-from fastapi import Response
 
 from app.services.llm_groq import groq_generate
 from app.services.daily_analysis import analyze_by_local_day
@@ -11,11 +11,17 @@ from app.services.preprocess import compute_features
 from app.services.well_l04 import evaluate_l04
 from app.services.data_service import fetch_rows
 
-
 load_dotenv()
 
 app = FastAPI(title="LightWell API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can specify your frontend URL here, e.g., ["http://localhost:3000"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health():
@@ -26,7 +32,6 @@ def health():
         "GROQ_API_KEY_set": bool(os.getenv("GROQ_API_KEY")),
         "GROQ_MODEL_set": bool(os.getenv("GROQ_MODEL")),
     }
-
 
 def _parse_iso8601(s: str) -> str:
     if s.endswith("Z"):
@@ -39,7 +44,6 @@ def _parse_iso8601(s: str) -> str:
             status_code=400,
             detail=f"Invalid ISO 8601 datetime: {s}",
         )
-
 
 @app.get("/data")
 def get_data(start: str, end: str) -> Dict[str, Any]:

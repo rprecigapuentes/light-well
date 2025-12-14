@@ -1,4 +1,5 @@
 fastapi
+fastapi[all]
 uvicorn[standard]
 python-dotenv
 dotenv

@@ -84,3 +84,97 @@ frontend/
 ```
 
 This step leaves a minimal, functional frontend environment ready for development.
+
+## Step 1 — Define backend contract (single-day mode)
+
+**Operation mode:**  
+The frontend operates in *single-day per request* mode. The user selects a calendar date, which is converted into a start/end datetime range for that day in the Bogotá timezone. All API calls are made using this daily range.
+
+**Backend endpoints used:**
+- `GET /data` — retrieve metrics for the selected day
+- `GET /insight` — generate an LLM insight for the selected day
+- `GET /ask` — answer a user question for the selected day
+
+**Required query parameters:**
+- `start` (ISO 8601 datetime)
+- `end` (ISO 8601 datetime)
+- `question` (string, only for `/ask`)
+
+**Minimum data to display:**
+- **Global metrics (day-wide):**
+  - `features_global`
+  - `l04_global`
+- **By-day metrics:**
+  - `features_by_day[date]`
+  - `l04_by_day[date]`
+- **Text outputs:**
+  - LLM insight (`/insight`)
+  - LLM answer to user question (`/ask`)
+
+If no data is available for the selected day (`count == 0`), the UI displays a “no data” state and disables insight and question features.
+
+## Step 2 — Bogotá day-range utilities
+
+**Objective:** standardize how a calendar date is converted into a backend-ready time range.
+
+A utility function was implemented in `src/lib/time` to:
+- Accept a date in `YYYY-MM-DD` format.
+- Convert it into the start and end of that day in the Bogotá timezone.
+- Return ISO 8601 timestamps with an explicit UTC-05:00 offset.
+
+**Result:**  
+All frontend API requests use a consistent `{ startISO, endISO }` range, ensuring correct daily queries and avoiding timezone-related errors.
+
+## Step 3–4 — API client integration and CORS configuration
+
+**Objective:** connect the frontend to the backend API and enable browser access.
+
+### Frontend API client
+A centralized API client was implemented in `src/lib/api` to:
+- Call backend endpoints (`/data`, `/insight`, `/ask`) for a single-day range.
+- Use `NEXT_PUBLIC_API_BASE` as the only external dependency.
+- Handle network and HTTP errors consistently.
+- Prevent direct `fetch` usage inside UI components.
+
+### Backend CORS configuration
+CORS was enabled in the FastAPI application to allow requests from the frontend origin during local development.
+
+- Browser requests originate from `http://localhost:3000`.
+- The backend runs on `http://127.0.0.1:8000`.
+- FastAPI was configured with `CORSMiddleware` to explicitly allow this cross-origin access.
+
+### Result
+The frontend can successfully request daily data from the backend, receive responses in the browser, and display validated results (e.g. row count), confirming end-to-end connectivity.
+
+## Step 5 — UI orchestration and LLM normalization
+
+**Objective:** connect UI components, time utilities, and API client into a working daily view, while keeping components stateless and simple.
+
+### Page orchestration
+The main page (`src/app/page.tsx`) acts as the orchestrator:
+- Manages the selected date.
+- Converts the date into a Bogotá day range using `lib/time`.
+- Fetches daily data via `lib/api`.
+- Coordinates loading, error, and empty-data states.
+- Passes prepared data to presentational components.
+
+### LLM response normalization
+Backend LLM responses (`/insight`, `/ask`) may return structured objects rather than plain text.  
+A single normalization helper is used at the page level to:
+- Convert LLM outputs into displayable strings.
+- Handle multiple response shapes (summary, recommendations, answer, notes).
+- Ensure UI components only receive render-safe types.
+
+### UI components usage
+- **DaySelector:** controls date selection.
+- **Card:** groups and displays content blocks.
+- **InsightBox:** renders the normalized daily insight text.
+- **AskBox:** handles user questions and displays normalized answers.
+
+### Result
+- End-to-end daily workflow is functional.
+- Frontend successfully displays metrics, compliance analysis, insights, and Q&A.
+- Components remain “dumb” and reusable.
+- All business logic and data shaping live in the page layer.
+
+This completes a fully integrated, single-day frontend view connected to the backend API.
