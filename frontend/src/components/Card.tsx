@@ -1,14 +1,26 @@
-import { ReactNode } from "react";
+import React from "react";
+import styles from "@/app/page.module.css";
 
-type CardProps = {
-  title: string;
-  children: ReactNode;
-};
+interface CardProps {
+  title?: string;
+  children?: React.ReactNode;
+  className?: string;
+}
 
-export function Card({ title, children }: CardProps) {
+export default function Card({ title, children, className }: CardProps) {
   return (
-    <div style={{ border: "1px solid #ccc", padding: "1rem", marginBottom: "1rem" }}>
-      <h3>{title}</h3>
+    <div
+      className={className}
+      style={{
+        background: "#fff",
+        borderRadius: "8px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+        border: "1px solid #e5e7eb",
+        padding: "1.5rem",
+        height: "100%",
+      }}
+    >
+      {title && <h3 className={styles.sectionTitle}>{title}</h3>}
       {children}
     </div>
   );

@@ -1,141 +1,315 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
+/* frontend/src/app/page.module.css
+   Light palette + consistent inputs/cards/buttons (no dark mode).
+   Goal: remove harsh black fields, keep continuity and readable contrast.
+*/
 
-  --text-primary: #000;
-  --text-secondary: #666;
+:root {
+  /* Neutrals */
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --border: #e5e7eb;
+  --border-2: #d1d5db;
 
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
+  /* Text */
+  --text: #111827;
+  --muted: #6b7280;
 
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  /* Brand (blue) */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-border: #bfdbfe;
+
+  /* Status */
+  --success-bg: #d1fae5;
+  --success-text: #065f46;
+  --danger-bg: #fee2e2;
+  --danger-text: #991b1b;
+
+  /* Notes */
+  --warn-bg: #fffbeb;
+  --warn-border: #fcd34d;
+  --warn-text: #92400e;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 20px rgba(17, 24, 39, 0.08);
 }
 
 .main {
-  display: flex;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background-color: var(--bg);
   min-height: 100vh;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
+}
+
+.header {
+  display: flex;
   justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
+  align-items: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
 }
 
-.intro {
+.title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Inputs: consistent light look everywhere */
+.dateInput,
+.askInput {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.dateInput {
+  padding: 0.5rem 0.75rem;
+}
+
+.askInput {
+  flex: 1;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.4;
+  resize: vertical; /* textarea friendly */
+}
+
+.dateInput:focus,
+.askInput:focus {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Grid for scalar metrics (EDI stats) */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+/* Compliance / Tier styles */
+.tiersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
 }
 
-.ctas {
+.tierBox {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.tierBox:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.tierHeader {
   display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
-}
-
-.ctas a {
-  display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.tierTitle {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
   border: 1px solid transparent;
-  transition: 0.2s;
+}
+
+.badgeSuccess {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border-color: rgba(6, 95, 70, 0.2);
+}
+
+.badgeFailure {
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: rgba(153, 27, 27, 0.2);
+}
+
+.badgeNeutral {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: rgba(55, 65, 81, 0.15);
+}
+
+.tierDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.95rem;
+}
+
+.tierRow {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #eef2f7;
+  padding-bottom: 0.35rem;
+}
+
+.tierRowLabel {
+  color: var(--muted);
+}
+
+.tierRowValue {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notes {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background-color: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 10px;
+  color: var(--warn-text);
+  font-size: 0.92rem;
+}
+
+/* Insight & Ask Layout */
+.interactionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .interactionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Ask Box Specifics */
+.askInputGroup {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+.askButton {
+  background-color: var(--primary);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0 1.25rem;
+  border-radius: 10px;
+  font-weight: 800;
   cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+  transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: var(--shadow-sm);
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+.askButton:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.askButton:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+  transform: none;
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.answerArea {
+  background: var(--primary-soft);
+  padding: 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  border: 1px solid var(--primary-border);
+  border-left: 4px solid var(--primary);
+  color: var(--text);
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
-
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+/* Loading & Error */
+.loading {
+  color: var(--muted);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
+.errorBox {
+  background-color: var(--danger-bg);
+  border: 1px solid #ef4444;
+  color: #b91c1c;
+  padding: 1rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
 }

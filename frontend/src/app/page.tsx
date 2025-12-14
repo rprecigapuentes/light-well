@@ -1,170 +1,265 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import React, { useEffect, useState, useCallback } from "react";
 import styles from "./page.module.css";
 
 import { bogotaDayRange } from "@/lib/time";
 import { getDayData, getDayInsight, askDay } from "@/lib/api";
 
-import { DaySelector } from "@/components/DaySelector";
-import { Card } from "@/components/Card";
-import { InsightBox } from "@/components/InsightBox";
-import { AskBox } from "@/components/AskBox";
+import type {
+  DailyViewResponse,
+  InsightResponse,
+  AskResponse,
+  TierResult,
+  Features,
+  L04Result,
+  ISODate,
+} from "@/lib/api/types";
 
-import type { DailyViewResponse, LLMOutput, ISODate } from "@/lib/api/types";
+import InsightBox from "@/components/InsightBox";
+import AskBox from "@/components/AskBox";
 
-function llmToText(llm: LLMOutput): string | null {
-  if (typeof llm === "string") return llm;
+// --- Helper Components ---
 
-  if (llm && typeof llm === "object") {
-    const obj = llm as Record<string, unknown>;
-    const parts: string[] = [];
+const StatItem = ({
+  label,
+  value,
+  unit = "",
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+}) => (
+  <div className={styles.statCard}>
+    <span className={styles.statLabel}>{label}</span>
+    <span className={styles.statValue}>
+      {typeof value === "number"
+        ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+        : value}
+      {unit}
+    </span>
+  </div>
+);
 
-    const summary = obj["summary"];
-    if (typeof summary === "string" && summary.trim()) {
-      parts.push(`Summary:\n${summary}`);
-    }
+const ComplianceBadge = ({ compliant }: { compliant: boolean }) => (
+  <span className={`${styles.badge} ${compliant ? styles.badgeSuccess : styles.badgeFailure}`}>
+    {compliant ? "COMPLIANT" : "NON-COMPLIANT"}
+  </span>
+);
 
-    const recs = obj["recommendations"];
-    if (Array.isArray(recs)) {
-      const items = recs.filter((x) => typeof x === "string") as string[];
-      if (items.length > 0) {
-        parts.push(`Recommendations:\n- ${items.join("\n- ")}`);
-      }
-    }
+const TierCard = ({ title, tier }: { title: string; tier: TierResult }) => {
+  return (
+    <div
+      className={styles.tierBox}
+      style={{ borderColor: tier.compliant ? "#10b981" : "#ef4444" }}
+    >
+      <div className={styles.tierHeader}>
+        <span className={styles.tierTitle}>{title}</span>
+        <ComplianceBadge compliant={tier.compliant} />
+      </div>
 
-    const answer = obj["answer"];
-    if (typeof answer === "string" && answer.trim()) {
-      parts.push(`Answer:\n${answer}`);
-    }
+      <div className={styles.tierDetails}>
+        <div className={styles.tierRow}>
+          <span className={styles.tierRowLabel}>Threshold</span>
+          <span className={styles.tierRowValue}>{tier.threshold}</span>
+        </div>
+        <div className={styles.tierRow}>
+          <span className={styles.tierRowLabel}>Required Min</span>
+          <span className={styles.tierRowValue}>{tier.required_minutes}m</span>
+        </div>
+        <div className={styles.tierRow}>
+          <span className={styles.tierRowLabel}>Missing Min</span>
+          <span
+            className={styles.tierRowValue}
+            style={{ color: tier.missing_minutes > 0 ? "#b91c1c" : "inherit" }}
+          >
+            {tier.missing_minutes}m
+          </span>
+        </div>
+        <div className={styles.tierRow}>
+          <span className={styles.tierRowLabel}>Best Continuous</span>
+          <span className={styles.tierRowValue}>{tier.best_continuous_minutes}m</span>
+        </div>
+        <div className={styles.tierRow}>
+          <span className={styles.tierRowLabel}>Max Gap</span>
+          <span className={styles.tierRowValue}>{tier.max_gap_min}m</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-    const notes = obj["notes"];
-    if (typeof notes === "string" && notes.trim()) {
-      parts.push(`Notes:\n${notes}`);
-    }
+export default function DailyViewPage() {
+  // Default to today (Bogotá local date string); you can override in UI
+  const [selectedDate, setSelectedDate] = useState<ISODate>(
+    new Date().toISOString().split("T")[0] as ISODate
+  );
 
-    if (parts.length > 0) return parts.join("\n\n");
-
-    // Fallback: si el JSON viene con otro shape
-    return JSON.stringify(obj, null, 2);
-  }
-
-  return null;
-}
-
-export default function Home() {
-  const [date, setDate] = useState<ISODate>("2025-12-13");
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  // Data States
   const [data, setData] = useState<DailyViewResponse | null>(null);
-  const [insightText, setInsightText] = useState<string | null>(null);
-  const [answerText, setAnswerText] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  // Insight States
+  const [insight, setInsight] = useState<InsightResponse | null>(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+
+  // Ask States
+  const [askResponse, setAskResponse] = useState<AskResponse | null>(null);
+  const [loadingAsk, setLoadingAsk] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+
+  // Fetch Data & Insight when date changes
+  const loadDay = useCallback(async (dateISO: ISODate) => {
+    setLoadingData(true);
+    setDataError(null);
+
+    setLoadingInsight(true);
+    setInsightError(null);
+
+    setAskResponse(null); // Clear previous Q&A
+    setAskError(null);
+
+    const { startISO, endISO } = bogotaDayRange(dateISO);
+
+    // 1) Fetch Main Data
+    const dataRes = await getDayData(startISO, endISO);
+    if (dataRes.ok) {
+      setData(dataRes.data);
+    } else {
+      setDataError(dataRes.error);
+      setData(null);
+    }
+    setLoadingData(false);
+
+    // 2) Fetch Insight (always try; backend can decide if insufficient)
+    const insightRes = await getDayInsight(startISO, endISO);
+    if (insightRes.ok) {
+      setInsight(insightRes.data);
+    } else {
+      setInsightError(insightRes.error);
+      setInsight(null);
+    }
+    setLoadingInsight(false);
+  }, []);
 
   useEffect(() => {
-    async function loadDay() {
-      setLoading(true);
-      setError(null);
-      setAnswerText(null);
+    loadDay(selectedDate);
+  }, [loadDay, selectedDate]);
 
-      const { startISO, endISO } = bogotaDayRange(date);
+  const handleAsk = async (question: string) => {
+    setLoadingAsk(true);
+    setAskError(null);
 
-      const result = await getDayData(startISO, endISO);
+    const { startISO, endISO } = bogotaDayRange(selectedDate);
 
-      if (!result.ok) {
-        setError(result.error);
-        setData(null);
-        setInsightText(null);
-        setLoading(false);
-        return;
-      }
-
-      setData(result.data);
-
-      // Tu "count" está dentro de features_global (según lo que mostrabas en UI)
-      if (result.data.features_global.count > 0) {
-        const insightResult = await getDayInsight(startISO, endISO);
-        if (insightResult.ok) {
-          setInsightText(llmToText(insightResult.data.llm));
-        } else {
-          setInsightText(null);
-        }
-      } else {
-        setInsightText(null);
-      }
-
-      setLoading(false);
-    }
-
-    loadDay();
-  }, [date]);
-
-  async function handleAsk(question: string) {
-    if (!data || data.features_global.count === 0) return;
-
-    const { startISO, endISO } = bogotaDayRange(date);
-
-    const result = await askDay(startISO, endISO, question);
-
-    if (result.ok) {
-      setAnswerText(llmToText(result.data.llm));
+    const res = await askDay(startISO, endISO, question);
+    if (res.ok) {
+      setAskResponse(res.data);
     } else {
-      setAnswerText(result.error);
+      setAskError(res.error);
     }
-  }
 
-  const hasData = !!data && data.features_global.count > 0;
+    setLoadingAsk(false);
+  };
+
+  // Extract the specific day data (backend returns maps keyed by ISODate)
+  const featuresForDay: Features | undefined = data?.features_by_day?.[selectedDate];
+  const l04ForDay: L04Result | undefined = data?.l04_by_day?.[selectedDate];
 
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <h1 className={styles.title}>Daily View</h1>
 
-        <h1>LightWell — Daily View</h1>
+        <div className={styles.controls}>
+          <label htmlFor="date-picker">Select Date:</label>
 
-        <DaySelector value={date} onChange={setDate} />
+          <input
+            id="date-picker"
+            type="date"
+            className={styles.dateInput}
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value as ISODate)}
+          />
 
-        {loading && <p>Loading…</p>}
+          <button
+            onClick={() => loadDay(selectedDate)}
+            className={styles.askButton}
+            style={{ padding: "0.5rem 1rem" }}
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
 
-        {!loading && error && (
-          <p style={{ color: "red" }}>
-            <strong>Error:</strong> {error}
-          </p>
-        )}
+      {/* ERROR BANNER */}
+      {dataError && (
+        <div className={styles.errorBox}>
+          <strong>Error loading data:</strong> {dataError}
+        </div>
+      )}
 
-        {!loading && data && !hasData && <p>No data available for this day.</p>}
+      {/* LOADING STATE */}
+      {loadingData && (
+        <div className={styles.loading}>Loading metrics for {selectedDate}...</div>
+      )}
 
-        {!loading && hasData && (
-          <>
-            <Card title="Global metrics">
-              <pre>{JSON.stringify(data.features_global, null, 2)}</pre>
-              <pre>{JSON.stringify(data.l04_global, null, 2)}</pre>
-            </Card>
+      {/* MAIN CONTENT */}
+      {!loadingData && featuresForDay && l04ForDay && (
+        <>
+          {/* SECTION 1: EDI STATS (for selected day) */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>EDI Statistics</h2>
 
-            <Card title="By-day metrics">
-              <pre>{JSON.stringify(data.features_by_day, null, 2)}</pre>
-              <pre>{JSON.stringify(data.l04_by_day, null, 2)}</pre>
-            </Card>
+            <div className={styles.statsGrid}>
+              <StatItem label="Count" value={featuresForDay.count} />
+              <StatItem label="Duration" value={featuresForDay.duration_s} unit="s" />
+              <StatItem label="Mean" value={featuresForDay.edi_mean} />
+              <StatItem label="Median" value={featuresForDay.edi_median} />
+              <StatItem label="Min" value={featuresForDay.edi_min} />
+              <StatItem label="Max" value={featuresForDay.edi_max} />
+              <StatItem label="P10" value={featuresForDay.edi_p10} />
+              <StatItem label="P90" value={featuresForDay.edi_p90} />
+              <StatItem label="Last Value" value={featuresForDay.edi_last} />
+              <StatItem label="Δ vs Median" value={featuresForDay.edi_delta_vs_median} />
+            </div>
+          </section>
 
-            <Card title="Insight">
-              <InsightBox text={insightText} />
-            </Card>
+          {/* SECTION 2: COMPLIANCE */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>WELL L04 Compliance</h2>
 
-            <Card title="Ask">
-              <AskBox onAsk={handleAsk} answer={answerText} />
-            </Card>
-          </>
-        )}
-      </main>
-    </div>
+            <div className={styles.tiersGrid}>
+              <TierCard title="Tier 1" tier={l04ForDay.tier_1} />
+              <TierCard title="Tier 2" tier={l04ForDay.tier_2} />
+            </div>
+
+            {l04ForDay.notes && (
+              <div className={styles.notes}>
+                <strong>Note:</strong> {l04ForDay.notes}
+              </div>
+            )}
+          </section>
+
+          {/* SECTION 3: INSIGHT & ASK */}
+          <section className={`${styles.section} ${styles.interactionGrid}`}>
+            <InsightBox isLoading={loadingInsight} insight={insight} error={insightError} />
+            <AskBox
+              onAsk={handleAsk}
+              isLoading={loadingAsk}
+              response={askResponse}
+              error={askError}
+            />
+          </section>
+        </>
+      )}
+
+      {/* EMPTY STATE */}
+      {!loadingData && !dataError && (!featuresForDay || !l04ForDay) && (
+        <div className={styles.loading}>No data available for {selectedDate}.</div>
+      )}
+    </main>
   );
 }

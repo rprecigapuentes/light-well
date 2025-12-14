@@ -198,3 +198,42 @@ After typing the frontend strictly, the LLM outputs stopped rendering. The backe
 
 **Result**  
 The frontend renders LLM insights and answers correctly again, with strict TypeScript typing and no runtime validation or extra libraries.
+
+## Step 7 — UI Design Update (Light Theme + Visual Consistency)
+
+### Goal
+Replace the dark background / white-card clash with a clean light palette and consistent component styling across the page.
+
+### What changed
+- Introduced a **light theme palette** using CSS variables (`:root`) for:
+  - background/surfaces, borders, text colors
+  - primary (blue) accents
+  - status colors (success/danger) and notes (warning)
+  - shared shadows
+
+### Main layout
+- Set `.main` to a **light background** (`--bg`) with full-height (`min-height: 100vh`) and standard readable text color.
+
+### Inputs (date picker + ask textarea)
+- Unified input styling (`.dateInput`, `.askInput`) to avoid “black box” fields:
+  - light background, consistent border radius, subtle shadow
+  - proper focus ring using `--primary-border` and a soft blue glow
+
+### Cards and sections
+- Updated `.statCard` and `.tierBox` to match the palette:
+  - white surface, soft border, consistent shadows
+  - hover elevation for tier cards (subtle lift + stronger shadow)
+
+### Buttons
+- Improved `.askButton` for a cohesive primary action:
+  - primary blue background, hover state, disabled state
+  - slight hover lift for better affordance
+
+### Text blocks (LLM output)
+- Styled `.answerArea` to look intentional:
+  - light blue surface (`--primary-soft`)
+  - left accent border and matching border color
+  - preserves formatting via `white-space: pre-wrap`
+
+### Result
+A consistent **light UI** with coherent colors, readable contrast, and matching input/button/card styles (no dark mode).
