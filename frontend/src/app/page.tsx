@@ -12,22 +12,41 @@ import { Card } from "@/components/Card";
 import { InsightBox } from "@/components/InsightBox";
 import { AskBox } from "@/components/AskBox";
 
-function llmToText(llm: unknown): string | null {
+import type { DailyViewResponse, LLMOutput, ISODate } from "@/lib/api/types";
+
+function llmToText(llm: LLMOutput): string | null {
   if (typeof llm === "string") return llm;
 
   if (llm && typeof llm === "object") {
-    const obj = llm as any;
-
+    const obj = llm as Record<string, unknown>;
     const parts: string[] = [];
 
-    if (obj.summary) parts.push(`Summary:\n${obj.summary}`);
-    if (obj.recommendations) parts.push(`Recommendations:\n${obj.recommendations}`);
-    if (obj.answer) parts.push(`Answer:\n${obj.answer}`);
-    if (obj.notes) parts.push(`Notes:\n${obj.notes}`);
+    const summary = obj["summary"];
+    if (typeof summary === "string" && summary.trim()) {
+      parts.push(`Summary:\n${summary}`);
+    }
+
+    const recs = obj["recommendations"];
+    if (Array.isArray(recs)) {
+      const items = recs.filter((x) => typeof x === "string") as string[];
+      if (items.length > 0) {
+        parts.push(`Recommendations:\n- ${items.join("\n- ")}`);
+      }
+    }
+
+    const answer = obj["answer"];
+    if (typeof answer === "string" && answer.trim()) {
+      parts.push(`Answer:\n${answer}`);
+    }
+
+    const notes = obj["notes"];
+    if (typeof notes === "string" && notes.trim()) {
+      parts.push(`Notes:\n${notes}`);
+    }
 
     if (parts.length > 0) return parts.join("\n\n");
 
-    // Fallback for unknown shapes
+    // Fallback: si el JSON viene con otro shape
     return JSON.stringify(obj, null, 2);
   }
 
@@ -35,21 +54,15 @@ function llmToText(llm: unknown): string | null {
 }
 
 export default function Home() {
-  // -----------------------------
-  // State
-  // -----------------------------
-  const [date, setDate] = useState("2025-12-13");
+  const [date, setDate] = useState<ISODate>("2025-12-13");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<DailyViewResponse | null>(null);
   const [insightText, setInsightText] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState<string | null>(null);
 
-  // -----------------------------
-  // Load data when date changes
-  // -----------------------------
   useEffect(() => {
     async function loadDay() {
       setLoading(true);
@@ -70,8 +83,8 @@ export default function Home() {
 
       setData(result.data);
 
-      // If there is data, fetch insight
-      if (result.data.count > 0) {
+      // Tu "count" está dentro de features_global (según lo que mostrabas en UI)
+      if (result.data.features_global.count > 0) {
         const insightResult = await getDayInsight(startISO, endISO);
         if (insightResult.ok) {
           setInsightText(llmToText(insightResult.data.llm));
@@ -88,11 +101,8 @@ export default function Home() {
     loadDay();
   }, [date]);
 
-  // -----------------------------
-  // Ask handler
-  // -----------------------------
   async function handleAsk(question: string) {
-    if (!data || data.count === 0) return;
+    if (!data || data.features_global.count === 0) return;
 
     const { startISO, endISO } = bogotaDayRange(date);
 
@@ -105,9 +115,8 @@ export default function Home() {
     }
   }
 
-  // -----------------------------
-  // Render
-  // -----------------------------
+  const hasData = !!data && data.features_global.count > 0;
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -132,11 +141,9 @@ export default function Home() {
           </p>
         )}
 
-        {!loading && data && data.count === 0 && (
-          <p>No data available for this day.</p>
-        )}
+        {!loading && data && !hasData && <p>No data available for this day.</p>}
 
-        {!loading && data && data.count > 0 && (
+        {!loading && hasData && (
           <>
             <Card title="Global metrics">
               <pre>{JSON.stringify(data.features_global, null, 2)}</pre>

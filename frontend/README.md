@@ -178,3 +178,23 @@ A single normalization helper is used at the page level to:
 - All business logic and data shaping live in the page layer.
 
 This completes a fully integrated, single-day frontend view connected to the backend API.
+
+## Step 6 — Fix LLM rendering after strict typing
+
+**Problem**  
+After typing the frontend strictly, the LLM outputs stopped rendering. The backend was already returning **JSON objects**, but the frontend assumed the `llm` field was a plain string, causing the UI to show “No insight available” and breaking the Ask flow.
+
+**Root cause**  
+`llm` is returned as structured JSON (e.g. `{ summary, recommendations }` or `{ answer, notes }`), not as a string.
+
+**Solution**  
+1. Update the frontend types so `llm` accepts structured JSON:
+   - Define `LLMOutput` as `string | object`.
+2. Restore a normalization helper (`llmToText`) that:
+   - Extracts `summary`, `recommendations`, `answer`, and `notes` when present.
+   - Falls back to `JSON.stringify` for unknown shapes.
+3. Use this helper consistently for both **Insight** and **Ask** responses.
+4. Keep the daily metrics and L04 typing unchanged.
+
+**Result**  
+The frontend renders LLM insights and answers correctly again, with strict TypeScript typing and no runtime validation or extra libraries.
