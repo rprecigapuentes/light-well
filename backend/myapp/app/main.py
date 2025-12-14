@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from typing import Dict, Any
 import os
+from fastapi import Response
 
 from app.services.llm_groq import groq_generate
 from app.services.daily_analysis import analyze_by_local_day
@@ -53,15 +54,14 @@ def get_data(start: str, end: str) -> Dict[str, Any]:
             detail="Data service failed",
         ) from exc
 
-    features = compute_features(rows)
-    l04 = evaluate_l04(rows)
-    daily_l04 = analyze_by_local_day(rows)
+    daily = analyze_by_local_day(rows)
 
     return {
         "count": count,
-        "features": features,
-        "l04_global": l04,
-        "l04_by_day": daily_l04,
+        "features_global": compute_features(rows),
+        "l04_global": evaluate_l04(rows),
+        "features_by_day": daily["features_by_day"],
+        "l04_by_day": daily["l04_by_day"],
         "rows": rows,
     }
 
@@ -71,12 +71,14 @@ def insight(start: str, end: str) -> Dict[str, Any]:
     end = _parse_iso8601(end)
 
     count, rows = fetch_rows(start=start, end=end)
+    daily = analyze_by_local_day(rows)
 
     context = {
         "range": {"start": start, "end": end},
-        "features": compute_features(rows),
+        "features_global": compute_features(rows),
         "l04_global": evaluate_l04(rows),
-        "l04_by_day": analyze_by_local_day(rows),
+        "features_by_day": daily["features_by_day"],
+        "l04_by_day": daily["l04_by_day"],
     }
 
     llm = groq_generate(context=context, question=None)
@@ -87,26 +89,27 @@ def insight(start: str, end: str) -> Dict[str, Any]:
         "llm": llm,
     }
 
-
 @app.get("/ask")
 def ask(start: str, end: str, question: str) -> Dict[str, Any]:
     start = _parse_iso8601(start)
     end = _parse_iso8601(end)
 
     count, rows = fetch_rows(start=start, end=end)
+    daily = analyze_by_local_day(rows)
 
     context = {
         "range": {"start": start, "end": end},
-        "features": compute_features(rows),
+        "features_global": compute_features(rows),
         "l04_global": evaluate_l04(rows),
-        "l04_by_day": analyze_by_local_day(rows),
+        "features_by_day": daily["features_by_day"],
+        "l04_by_day": daily["l04_by_day"],
     }
 
     llm = groq_generate(context=context, question=question)
 
     return {
         "count": count,
-        "context": context,
         "question": question,
+        "context": context,
         "llm": llm,
     }

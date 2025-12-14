@@ -1,5 +1,6 @@
 from typing import Dict, List, Any
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import statistics
 
 
@@ -32,9 +33,7 @@ def compute_features(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     # Extraer valores
     edis = [float(r["edi"]) for r in rows]
-    timestamps = [
-        _parse_iso8601(r["created_at"]) for r in rows
-    ]
+    timestamps = [_parse_iso8601(r["created_at"]) for r in rows]
 
     edis_sorted = sorted(edis)
     timestamps_sorted = sorted(timestamps)
@@ -72,6 +71,43 @@ def compute_features(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "edi_last": edi_last,
         "edi_delta_vs_median": edi_delta_vs_median,
     }
+
+
+def compute_features_daily(
+    rows: List[Dict[str, Any]],
+    tz: str = "America/Bogota",
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Compute the same compact features, but grouped per local day.
+
+    Returns:
+      {
+        "YYYY-MM-DD": { ...same keys as compute_features... },
+        ...
+      }
+
+    Notes:
+    - This function does NOT enforce WELL/L04 rules.
+    - It only groups by local day and runs the same feature computation.
+    """
+    if not rows:
+        return {}
+
+    tzinfo = ZoneInfo(tz)
+
+    buckets: Dict[str, List[Dict[str, Any]]] = {}
+    for r in rows:
+        t = _parse_iso8601(r["created_at"])
+        if t.tzinfo is None:
+            # Defensive: if upstream gives naive timestamps, assume UTC.
+            t = t.replace(tzinfo=ZoneInfo("UTC"))
+        t_local = t.astimezone(tzinfo)
+        day = t_local.date().isoformat()
+        buckets.setdefault(day, []).append(r)
+
+    # Important: keep original semantics of compute_features (duration based on min/max time)
+    # by feeding each day-bucket back into compute_features.
+    return {day: compute_features(day_rows) for day, day_rows in buckets.items()}
 
 
 def _parse_iso8601(s: str) -> datetime:
