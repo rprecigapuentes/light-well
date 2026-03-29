@@ -11,7 +11,7 @@ import time
 # CONFIG
 # ================================
 BAUD_RATE = 115200
-CSV_PATH = "/home/estiberz/UNAL/design_electronic_devices/lightwell_wearable/python/data/mediciones.csv"
+CSV_PATH = os.path.join(os.path.dirname(__file__), "data", "mediciones.csv")
 
 # If you want to force a specific port, set it here (e.g., "/dev/ttyACM0").
 # Leave as None to auto-detect.

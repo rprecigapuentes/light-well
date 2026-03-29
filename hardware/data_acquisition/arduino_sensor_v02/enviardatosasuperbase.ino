@@ -6,14 +6,16 @@
 #include <HTTPClient.h>
 
 // ========= CONFIGURA ESTO =========
-const char* WIFI_SSID = "ale";
-const char* WIFI_PASS = "123456789M";
+// Replace these values with your own credentials before flashing.
+// Never commit real credentials to version control.
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 
-const char* SUPABASE_URL = "https://lghcnblipkdoghwnhcsg.supabase.co";
+const char* SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
 // OJO: solo el path, NO vuelvas a poner el dominio aquí
 const char* SUPABASE_TABLE_ENDPOINT = "/rest/v1/mediciones";
 
-const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnaGNuYmxpcGtkb2dod25oY3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDE0NjQsImV4cCI6MjA3ODk3NzQ2NH0.h3sNqYooXOMx4l7kgL0bvpc42YcCZ4WrCNf28CxEJsA";
+const char* SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 // ==================================
 
 Adafruit_AS726x ams;
