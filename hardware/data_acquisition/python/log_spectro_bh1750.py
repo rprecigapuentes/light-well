@@ -24,26 +24,26 @@ LABEL = "8"   # e.g., "lamp_on", "lamp_off", "outdoor", etc.
 # ================================
 # HELPERS
 # ================================
-def detectar_puerto():
+def detect_port():
     if FORCED_PORT:
         return FORCED_PORT
-    puertos = list(serial.tools.list_ports.comports())
-    if not puertos:
-        raise RuntimeError("No se detectó ningún puerto serial. Conecta el Arduino.")
+    ports = list(serial.tools.list_ports.comports())
+    if not ports:
+        raise RuntimeError("No serial port detected. Connect the Arduino.")
     # Prefer devices that look like ACM/USB
-    for p in puertos:
+    for p in ports:
         if "ACM" in p.device or "USB" in p.device:
-            print(f"[✔] Detectado posible Arduino en {p.device}")
+            print(f"[✔] Possible Arduino detected at {p.device}")
             return p.device
-    print(f"[!] No vi ACM/USB explícito, uso {puertos[0].device}")
-    return puertos[0].device
+    print(f"[!] No explicit ACM/USB port found, using {ports[0].device}")
+    return ports[0].device
 
-def preparar_csv(path):
+def prepare_csv(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    nuevo = not os.path.exists(path)
+    new_file = not os.path.exists(path)
     f = open(path, "a", newline="")
     w = csv.writer(f)
-    if nuevo:
+    if new_file:
         w.writerow(["temp","violet","blue","green","yellow","orange","red","lux","label"])
     return f, w
 
@@ -51,13 +51,13 @@ def preparar_csv(path):
 # MAIN
 # ================================
 def main():
-    port = detectar_puerto()
-    print(f"[INFO] Abriendo {port} @ {BAUD_RATE} baud...")
-    with serial.Serial(port, BAUD_RATE, timeout=1) as ser, preparar_csv(CSV_PATH)[0] as f:
+    port = detect_port()
+    print(f"[INFO] Opening {port} @ {BAUD_RATE} baud...")
+    with serial.Serial(port, BAUD_RATE, timeout=1) as ser, prepare_csv(CSV_PATH)[0] as f:
         writer = csv.writer(f)
-        time.sleep(2)  # pequeño respiro para que el Arduino arranque
+        time.sleep(2)  # brief pause to let the Arduino boot
 
-        print("[INFO] Leyendo. Ctrl+C para detener.\n")
+        print("[INFO] Reading. Press Ctrl+C to stop.\n")
         num_ok = 0
         try:
             while True:
@@ -66,10 +66,10 @@ def main():
                     continue
                 parts = raw.split(",")
                 if len(parts) != 8:
-                    # línea malformada; ignora
+                    # malformed line; skip
                     continue
 
-                # Parseo simple (si falla, ignora la línea)
+                # simple parse — skip line on error
                 try:
                     temp   = float(parts[0])
                     violet = float(parts[1])
@@ -83,16 +83,16 @@ def main():
                     continue
 
                 writer.writerow([temp, violet, blue, green, yellow, orange, red, lux, LABEL])
-                f.flush()  # asegura que se guarde en disco
+                f.flush()  # flush to disk immediately
                 num_ok += 1
 
-                # feedback ligero en consola cada 20 muestras
+                # lightweight console feedback every 20 samples
                 if num_ok % 20 == 0:
-                    print(f"[OK] {num_ok} muestras guardadas...")
+                    print(f"[OK] {num_ok} samples saved...")
 
         except KeyboardInterrupt:
-            print(f"\n[STOP] Captura detenida. Total guardadas: {num_ok}")
-            print(f"[✔] CSV en: {os.path.abspath(CSV_PATH)}")
+            print(f"\n[STOP] Capture stopped. Total saved: {num_ok}")
+            print(f"[✔] CSV at: {os.path.abspath(CSV_PATH)}")
 
 if __name__ == "__main__":
     main()

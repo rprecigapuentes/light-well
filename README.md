@@ -21,13 +21,13 @@ An AI-driven **circadian lighting assessment** wearable system. LightWell measur
 
 ```
 ESP32-C3 Wearable          Supabase (PostgreSQL)
-  AS7262 + BH1750    →    mediciones table (edi, created_at)
+  AS7262 + BH1750    →    mediciones table (edi, created_at, ...)
   computes EDI                     ↓
                           FastAPI Backend
                           • fetches time range
-                          • computes statistics
+                          • computes statistical features
                           • evaluates WELL v2 L04 (Tier 1 & 2)
-                          • groups by local day (Bogotá UTC-5)
+                          • groups by local day (Bogotá, UTC-5)
                           • calls Groq LLM for insights
                                    ↓
                           Next.js Dashboard
@@ -65,32 +65,54 @@ A gap greater than **10 minutes** between consecutive sensor readings resets the
 
 ---
 
+## Database Schema
+
+Table: **`mediciones`** (Supabase / PostgreSQL)
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `int8` | Auto-increment primary key |
+| `created_at` | `timestamptz` | UTC timestamp of the reading |
+| `edi` | `float8` | Melanopic EDI value (CIE S 026) |
+| `violet` | `int4` | AS7262 violet channel (raw counts) |
+| `blue` | `int4` | AS7262 blue channel (raw counts) |
+| `green` | `int4` | AS7262 green channel (raw counts) |
+| `yellow` | `int4` | AS7262 yellow channel (raw counts) |
+| `orange` | `int4` | AS7262 orange channel (raw counts) |
+| `red` | `int4` | AS7262 red channel (raw counts) |
+| `lux` | `float8` | Illuminance from BH1750 (lux) |
+
+---
+
 ## Project Structure
 
 ```
 light-well/
 ├── frontend/                    # Next.js dashboard
-│   └── src/
-│       ├── app/                 # page.tsx (main), layout.tsx, CSS
-│       ├── components/          # InsightBox, AskBox, Card
-│       └── lib/
-│           ├── time.ts          # bogotaDayRange() — date → UTC range
-│           └── api/             # API client + TypeScript types
+│   ├── src/
+│   │   ├── app/                 # page.tsx (main orchestrator), layout.tsx, CSS
+│   │   ├── components/          # InsightBox, AskBox, Card, DaySelector
+│   │   └── lib/
+│   │       ├── time.ts          # bogotaDayRange() — date → UTC ISO range (UTC-5)
+│   │       └── api/             # API client + TypeScript types
+│   ├── .env.example
+│   └── README.md
 ├── backend/myapp/
 │   ├── app/
-│   │   ├── main.py              # FastAPI app, routes
+│   │   ├── main.py              # FastAPI app, routes, CORS
 │   │   └── services/
 │   │       ├── data_service.py  # Supabase query
 │   │       ├── preprocess.py    # Statistical features
 │   │       ├── well_l04.py      # WELL L04 compliance logic
-│   │       ├── daily_analysis.py
+│   │       ├── daily_analysis.py # Per-day orchestration (UTC-5)
 │   │       └── llm_groq.py      # Groq API integration
 │   ├── requirements.txt
-│   └── .env.example
+│   ├── .env.example
+│   └── README.md
 └── hardware/data_acquisition/
-    ├── arduino_sensor_v01/      # PlatformIO (CSV logger via Serial)
-    ├── arduino_sensor_v02/      # Arduino IDE (WiFi → Supabase uploader)
-    └── python/                  # Serial reader → CSV
+    ├── arduino_sensor_v01/      # PlatformIO firmware (Serial → CSV)
+    ├── arduino_sensor_v02/      # Arduino IDE firmware (WiFi → Supabase)
+    └── python/                  # Serial data logger → CSV
 ```
 
 ---
@@ -115,20 +137,16 @@ curl http://127.0.0.1:8000/health
 
 ```bash
 cd frontend
+cp .env.example .env.local    # set NEXT_PUBLIC_API_URL if needed
 npm install
-npm run dev                    # http://localhost:3000
-```
-
-To point the frontend at a non-default backend URL, set `NEXT_PUBLIC_API_URL` in a `.env.local` file:
-```
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+npm run dev                   # http://localhost:3000
 ```
 
 ### Hardware
 
 **v02 — WiFi uploader (recommended):**
 1. Open `hardware/data_acquisition/arduino_sensor_v02/enviardatosasuperbase.ino` in Arduino IDE.
-2. Fill in your `WIFI_SSID`, `WIFI_PASS`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` at the top of the file.
+2. Fill in `WIFI_SSID`, `WIFI_PASS`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` at the top of the file.
 3. Flash to ESP32-C3 Mini.
 
 **v01 — Serial CSV logger:**
@@ -137,7 +155,7 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 cd hardware/data_acquisition/arduino_sensor_v01
 platformio run --target upload
 
-# Then capture data with the Python logger
+# Capture data with the Python logger
 cd hardware/data_acquisition/python
 python log_spectro_bh1750.py   # auto-detects Arduino port, writes to ./data/mediciones.csv
 ```
@@ -159,14 +177,21 @@ All timestamps use ISO 8601. The frontend sends UTC timestamps bracketing the se
 
 ## Environment Variables
 
-Create `backend/myapp/.env` (see `.env.example`):
+**Backend** — create `backend/myapp/.env`:
 
-```
-SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-SUPABASE_KEY=your_supabase_anon_or_service_key
-GROQ_API_KEY=your_groq_api_key
-GROQ_MODEL=llama-3.3-70b-versatile
-```
+| Variable | Description |
+|---|---|
+| `SUPABASE_URL` | `https://YOUR_PROJECT_ID.supabase.co` |
+| `SUPABASE_KEY` | Supabase anon or service role key |
+| `GROQ_API_KEY` | Groq API key |
+| `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` |
+| `GROQ_MODEL` | e.g. `llama-3.3-70b-versatile` |
+
+**Frontend** — create `frontend/.env.local`:
+
+| Variable | Description | Default |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | Backend base URL | `http://127.0.0.1:8000` |
 
 ---
 
