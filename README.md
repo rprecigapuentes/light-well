@@ -198,3 +198,4 @@ All timestamps use ISO 8601. The frontend sends UTC timestamps bracketing the se
 ## Author
 
 Rosemberth Steeven Preciga Puentes
+Luis Guillermo Vaca Rincon
